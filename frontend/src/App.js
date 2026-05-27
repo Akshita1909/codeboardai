@@ -30,7 +30,7 @@ export default function App() {
     setError("");
     setResult(null);
     try {
-      const res = await axios.post("http://localhost:8080/analyze", { repoUrl });
+      const res = await axios.post("https://codeboardai.onrender.com/analyze", { repoUrl });
       setResult(res.data);
     } catch (err) {
       setError("Something went wrong. Check the repo URL and try again.");
