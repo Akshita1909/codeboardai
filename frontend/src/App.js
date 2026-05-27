@@ -3,12 +3,26 @@ import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import { useEffect, useRef } from "react";
 
 export default function App() {
   const [repoUrl, setRepoUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("doc");
+  const mermaidRef = useRef(null);
+
+  useEffect(() => {
+    if (result && activeTab === "diagram" && mermaidRef.current) {
+      import("mermaid").then((m) => {
+        m.default.initialize({ startOnLoad: false, theme: "dark" });
+        m.default.render("arch-diagram", result.diagram).then(({ svg }) => {
+          if (mermaidRef.current) mermaidRef.current.innerHTML = svg;
+        });
+      });
+    }
+  }, [result, activeTab]);
 
   const analyze = async () => {
     if (!repoUrl) return;
@@ -38,9 +52,9 @@ export default function App() {
   return (
     <div style={styles.container}>
       <div style={styles.hero}>
-        <h1 style={styles.title}>🧠 CodeboardAI</h1>
+        <h1 style={styles.title}>CodeboardAI</h1>
         <p style={styles.subtitle}>
-          Paste any public GitHub repo — get a full developer onboarding doc in seconds.
+          Paste any public GitHub repo — get a full developer onboarding doc and architecture diagram in seconds.
         </p>
         <div style={styles.inputRow}>
           <input
@@ -61,43 +75,67 @@ export default function App() {
       {loading && (
         <div style={styles.loadingBox}>
           <div style={styles.spinner} />
-          <p style={styles.loadingText}>Reading your codebase and generating onboarding doc...</p>
+          <p style={styles.loadingText}>Reading codebase and generating onboarding doc + architecture diagram...</p>
         </div>
       )}
 
       {result && (
         <div style={styles.resultContainer}>
           <div style={styles.repoCard}>
-            <h2 style={styles.repoName}>📦 {result.repo}</h2>
+            <h2 style={styles.repoName}>{result.repo}</h2>
             <p style={styles.repoDesc}>{result.description || "No description provided"}</p>
             <div style={styles.badges}>
-              <span style={styles.badge}>⭐ {result.stars} stars</span>
-              <span style={styles.badge}>🔤 {result.language}</span>
+              <span style={styles.badge}>{result.stars} stars</span>
+              <span style={styles.badge}>{result.language}</span>
+              <span style={styles.badge}>{result.filesAnalyzed} files analyzed</span>
             </div>
           </div>
 
-          <div style={styles.docBox} id="onboarding-doc">
-            <div style={styles.docHeader}>
-              <h3 style={styles.docTitle}>📋 Onboarding Document</h3>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button
-                  style={styles.copyBtn}
-                  onClick={() => navigator.clipboard.writeText(result.onboardingDoc)}
-                >
-                  Copy Doc
-                </button>
-                <button
-                  style={styles.pdfBtn}
-                  onClick={exportPDF}
-                >
-                  Export PDF ↓
-                </button>
+          <div style={styles.tabs}>
+            <button
+              style={activeTab === "doc" ? styles.tabActive : styles.tab}
+              onClick={() => setActiveTab("doc")}
+            >
+              Onboarding Document
+            </button>
+            <button
+              style={activeTab === "diagram" ? styles.tabActive : styles.tab}
+              onClick={() => setActiveTab("diagram")}
+            >
+              Architecture Diagram
+            </button>
+          </div>
+
+          {activeTab === "doc" && (
+            <div style={styles.docBox} id="onboarding-doc">
+              <div style={styles.docHeader}>
+                <h3 style={styles.docTitle}>Onboarding Document</h3>
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    style={styles.copyBtn}
+                    onClick={() => navigator.clipboard.writeText(result.onboardingDoc)}
+                  >
+                    Copy Doc
+                  </button>
+                  <button style={styles.pdfBtn} onClick={exportPDF}>
+                    Export PDF
+                  </button>
+                </div>
+              </div>
+              <div style={styles.markdown}>
+                <ReactMarkdown>{result.onboardingDoc}</ReactMarkdown>
               </div>
             </div>
-            <div style={styles.markdown}>
-              <ReactMarkdown>{result.onboardingDoc}</ReactMarkdown>
+          )}
+
+          {activeTab === "diagram" && (
+            <div style={styles.docBox}>
+              <div style={styles.docHeader}>
+                <h3 style={styles.docTitle}>Architecture Diagram</h3>
+              </div>
+              <div ref={mermaidRef} style={styles.diagram} />
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
@@ -213,6 +251,30 @@ const styles = {
     fontSize: "13px",
     color: "#58a6ff",
   },
+  tabs: {
+    display: "flex",
+    gap: "8px",
+    marginBottom: "16px",
+  },
+  tab: {
+    padding: "10px 20px",
+    borderRadius: "8px",
+    border: "1px solid #30363d",
+    backgroundColor: "#161b22",
+    color: "#8b949e",
+    cursor: "pointer",
+    fontSize: "14px",
+  },
+  tabActive: {
+    padding: "10px 20px",
+    borderRadius: "8px",
+    border: "none",
+    background: "linear-gradient(90deg, #58a6ff, #a371f7)",
+    color: "#fff",
+    cursor: "pointer",
+    fontSize: "14px",
+    fontWeight: "700",
+  },
   docBox: {
     backgroundColor: "#161b22",
     border: "1px solid #30363d",
@@ -251,5 +313,9 @@ const styles = {
   markdown: {
     lineHeight: "1.8",
     color: "#c9d1d9",
+  },
+  diagram: {
+    overflowX: "auto",
+    padding: "20px 0",
   },
 };
